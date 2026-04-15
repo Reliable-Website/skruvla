@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Skruvlafestivalen</title>
-    <link rel="icon" href="/Skruvla_Logo-Pos_1920.png" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
     <style>
       html, body {
         margin: 0;
@@ -17,16 +18,58 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        perspective: 1000px;
       }
+      .tilt {
+        --tx: 0px;
+        --ty: 0px;
+        --rx: 0deg;
+        --ry: 0deg;
+        transform:
+          translate3d(var(--tx), var(--ty), 0)
+          rotateX(var(--rx))
+          rotateY(var(--ry));
+        transition: transform 0.25s ease-out;
+        transform-style: preserve-3d;
+        cursor: pointer;
+      }
+      .tilt:active img { animation-play-state: paused; }
+      body { animation: fadein 1.2s ease-out both; }
       img {
         width: min(70vw, 70vh);
         height: auto;
-        animation: float 4s ease-in-out infinite;
-        will-change: transform;
+        transform-origin: center center;
+        will-change: transform, filter;
+        animation:
+          float 5s ease-in-out infinite,
+          sway  9s ease-in-out infinite,
+          pulse 3s ease-in-out infinite,
+          pop   1.2s cubic-bezier(.2,1.4,.4,1) both;
       }
       @keyframes float {
-        0%, 100% { transform: translateY(-2%) scale(1); }
-        50%      { transform: translateY(2%) scale(1.02); }
+        0%, 100% { transform: translateY(-2%) scale(1) rotate(var(--r, 0deg)); }
+        50%      { transform: translateY(2%)  scale(1.03) rotate(var(--r, 0deg)); }
+      }
+      @keyframes sway {
+        0%, 100% { --r: -2deg; }
+        50%      { --r:  2deg; }
+      }
+      @keyframes pulse {
+        0%, 100% { filter: drop-shadow(0 10px 30px rgba(0,0,0,0.25)); }
+        50%      { filter: drop-shadow(0 18px 50px rgba(0,0,0,0.45)); }
+      }
+      @keyframes fadein {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes pop {
+        from { transform: scale(0.6) rotate(-8deg); opacity: 0; }
+        to   { transform: scale(1)   rotate(0deg);  opacity: 1; }
+      }
+      @property --r {
+        syntax: '<angle>';
+        inherits: true;
+        initial-value: 0deg;
       }
       @media (prefers-reduced-motion: reduce) {
         img { animation: none; }
@@ -35,7 +78,58 @@
   </head>
   <body>
     <main>
-      <img src="/Skruvla_Logo-Pos_1920.png" alt="Skruvlafestivalen" />
+      <div class="tilt">
+        <img src="/skruvla.png" alt="Skruvlafestivalen" />
+      </div>
     </main>
+    <script>
+      (function () {
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const tilt = document.querySelector('.tilt');
+        const maxRot = 14;     // degrees
+        const maxShift = 20;   // px
+        let tx = 0, ty = 0, rx = 0, ry = 0;
+        let cx = 0, cy = 0, rax = 0, ray = 0;
+        let raf = null;
+
+        function onMove(e) {
+          const t = e.touches ? e.touches[0] : e;
+          const nx = (t.clientX / window.innerWidth)  * 2 - 1; // -1..1
+          const ny = (t.clientY / window.innerHeight) * 2 - 1;
+          cx = nx * maxShift;
+          cy = ny * maxShift;
+          ray =  nx * maxRot;  // rotateY follows x
+          rax = -ny * maxRot;  // rotateX inverse of y
+          if (!raf) raf = requestAnimationFrame(apply);
+        }
+        function apply() {
+          // ease toward target
+          tx += (cx - tx) * 0.12;
+          ty += (cy - ty) * 0.12;
+          rx += (rax - rx) * 0.12;
+          ry += (ray - ry) * 0.12;
+          tilt.style.setProperty('--tx', tx.toFixed(2) + 'px');
+          tilt.style.setProperty('--ty', ty.toFixed(2) + 'px');
+          tilt.style.setProperty('--rx', rx.toFixed(2) + 'deg');
+          tilt.style.setProperty('--ry', ry.toFixed(2) + 'deg');
+          if (Math.abs(cx - tx) + Math.abs(cy - ty) + Math.abs(rax - rx) + Math.abs(ray - ry) > 0.05) {
+            raf = requestAnimationFrame(apply);
+          } else {
+            raf = null;
+          }
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('touchmove', onMove, { passive: true });
+
+        // playful click: extra spin
+        tilt.addEventListener('click', () => {
+          tilt.animate(
+            [{ transform: tilt.style.transform + ' rotate(0turn)' },
+             { transform: tilt.style.transform + ' rotate(1turn)' }],
+            { duration: 800, easing: 'cubic-bezier(.2,.8,.2,1)' }
+          );
+        });
+      })();
+    </script>
   </body>
 </html>
